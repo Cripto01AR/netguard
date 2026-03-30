@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NetGuard Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0d1117; color: #e6edf3; font-family: monospace; }
+
+    .header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header h1 { font-size: 18px; color: #58a6ff; }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #3fb950;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      padding: 16px 24px;
+    }
+    .stat-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-value { font-size: 32px; font-weight: bold; color: #58a6ff; }
+    .stat-label { font-size: 12px; color: #8b949e; margin-top: 4px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 0 24px 24px;
+    }
+
+    .panel {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 10px 16px;
+      border-bottom: 1px solid #30363d;
+      font-size: 12px;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .panel-body { padding: 12px; max-height: 400px; overflow-y: auto; }
+
+    .pkt-row {
+      display: grid;
+      grid-template-columns: 70px 140px 140px 50px 60px;
+      gap: 8px;
+      padding: 4px 0;
+      border-bottom: 1px solid #21262d;
+      font-size: 11px;
+    }
+    .pkt-row:last-child { border-bottom: none; }
+    .proto-tcp  { color: #58a6ff; }
+    .proto-udp  { color: #f0883e; }
+    .proto-icmp { color: #3fb950; }
+    .proto-otro { color: #8b949e; }
+
+    .alerta-card {
+      background: #1c1c1c;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+    .alerta-card.alta  { border-left: 3px solid #f85149; }
+    .alerta-card.media { border-left: 3px solid #f0883e; }
+    .alerta-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .alerta-tipo { font-size: 12px; font-weight: bold; color: #f85149; }
+    .alerta-tipo.media { color: #f0883e; }
+    .alerta-ts { font-size: 11px; color: #8b949e; }
+    .alerta-ip { font-size: 11px; color: #8b949e; margin-bottom: 8px; }
+    .alerta-ia {
+      font-size: 11px;
+      color: #c9d1d9;
+      background: #0d1117;
+      border-radius: 4px;
+      padding: 8px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .no-data { color: #8b949e; font-size: 12px; padding: 20px; text-align: center; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="status-dot"></div>
+  <h1>NetGuard</h1>
+  <span style="color:#8b949e;font-size:12px;">Monitor de red en tiempo real</span>
+</div>
+
+<div class="stats">
+  <div class="stat-card">
+    <div class="stat-value" id="stat-paquetes">0</div>
+    <div class="stat-label">Paquetes capturados</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" id="stat-ips">0</div>
+    <div class="stat-label">IPs únicas</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" style="color:#f85149" id="stat-alertas">0</div>
+    <div class="stat-label">Alertas generadas</div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <div class="panel-header">Tráfico en vivo</div>
+    <div class="panel-body">
+      <div class="pkt-row" style="color:#8b949e;font-size:10px;">
+        <span>HORA</span><span>ORIGEN</span><span>DESTINO</span>
+        <span>PROTO</span><span>PUERTO</span>
+      </div>
+      <div id="trafico-list">
+        <div class="no-data">Esperando paquetes...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">Alertas — análisis IA</div>
+    <div class="panel-body" id="alertas-list">
+      <div class="no-data">Sin alertas por ahora</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const ws = new WebSocket(`ws://${location.host}/ws`);
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+
+    if (msg.tipo === 'estado_inicial') {
+      renderPaquetes(msg.data.paquetes_recientes);
+      renderAlertas(msg.data.alertas);
+      renderStats(msg.data.stats);
+    }
+    else if (msg.tipo === 'actualizacion') {
+      renderPaquetes(msg.data.paquetes_recientes);
+      renderStats(msg.data.stats);
+    }
+    else if (msg.tipo === 'alerta') {
+      agregarAlerta(msg.data);
+    }
+  };
+
+  function renderStats(stats) {
+    document.getElementById('stat-paquetes').textContent = stats.total_paquetes;
+    document.getElementById('stat-ips').textContent = stats.ips_unicas;
+    document.getElementById('stat-alertas').textContent = stats.alertas_total;
+  }
+
+  function renderPaquetes(paquetes) {
+    if (!paquetes.length) return;
+    const list = document.getElementById('trafico-list');
+    list.innerHTML = [...paquetes].reverse().map(p => `
+      <div class="pkt-row">
+        <span style="color:#8b949e">${p.timestamp}</span>
+        <span>${p.src}</span>
+        <span style="color:#8b949e">${p.dst}</span>
+        <span class="proto-${p.proto.toLowerCase()}">${p.proto}</span>
+        <span style="color:#8b949e">${p.puerto}</span>
+      </div>
+    `).join('');
+  }
+
+  function renderAlertas(alertas) {
+    const list = document.getElementById('alertas-list');
+    if (!alertas.length) return;
+    list.innerHTML = alertas.map(a => buildAlertaHTML(a)).join('');
+  }
+
+  function agregarAlerta(alerta) {
+    const list = document.getElementById('alertas-list');
+    if (list.querySelector('.no-data')) list.innerHTML = '';
+    list.insertAdjacentHTML('afterbegin', buildAlertaHTML(alerta));
+    document.getElementById('stat-alertas').textContent =
+      parseInt(document.getElementById('stat-alertas').textContent) + 1;
+  }
+
+  function buildAlertaHTML(a) {
+    const sev = (a.severidad || '').toLowerCase();
+    return `
+      <div class="alerta-card ${sev}">
+        <div class="alerta-header">
+          <span class="alerta-tipo ${sev}">${a.tipo}</span>
+          <span class="alerta-ts">${a.timestamp || ''}</span>
+        </div>
+        <div class="alerta-ip">IP: ${a.ip_src} · ${a.detalle}</div>
+        <div class="alerta-ia">${a.analisis_ia || 'Analizando...'}</div>
+      </div>
+    `;
+  }
+</script>
+</body>
+</html>
