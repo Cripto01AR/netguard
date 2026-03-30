@@ -3,16 +3,18 @@ from datetime import datetime
 from collections import defaultdict
 import sys
 import os
+import threading
+import time
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from src.analyzer.detector import Detector
+from src.ai.analizador import AnalizadorIA
 
 trafico = defaultdict(list)
 detector = Detector(ventana_segundos=60)
-contador = 0
+analizador_ia = AnalizadorIA()
 
 def procesar_paquete(pkt):
-    global contador
 
     if not pkt.haslayer(IP):
         return
@@ -49,8 +51,11 @@ def procesar_paquete(pkt):
         print(f"\n--- Resumen: {len(trafico)} IPs únicas, {total} paquetes capturados ---\n")
 
     # Análisis de anomalías cada 5 paquetes
-    contador += 1
-    if contador % 5 == 0:
+
+def loop_analisis():
+    """Corre el detector cada 10 segundos en un thread separado."""
+    while True:
+        time.sleep(10)
         alertas = detector.analizar(trafico)
         if alertas:
             print("\n" + "="*60)
@@ -58,7 +63,14 @@ def procesar_paquete(pkt):
                 print(f"⚠  ALERTA [{alerta['severidad']}] — {alerta['tipo']}")
                 print(f"   IP:      {alerta['ip_src']}")
                 print(f"   Detalle: {alerta['detalle']}")
+                print(f"\n🤖 Analizando con IA...")
+                analisis = analizador_ia.analizar_alerta(alerta)
+                print(f"\n{analisis}")
             print("="*60 + "\n")
+
+# Lanzamos el análisis en un thread separado
+thread = threading.Thread(target=loop_analisis, daemon=True)
+thread.start()
 
 print("NetGuard v0.2 — captura + detección activa en eth0...\n")
 
