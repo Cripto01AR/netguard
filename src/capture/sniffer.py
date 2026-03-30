@@ -1,13 +1,19 @@
-# src/capture/sniffer.py
 from scapy.all import sniff, IP, TCP, UDP, ICMP
 from datetime import datetime
 from collections import defaultdict
+import sys
+import os
 
-# Estructura donde guardamos los paquetes capturados
-# defaultdict(list) crea una lista vacía automáticamente para cada IP nueva
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
+from src.analyzer.detector import Detector
+
 trafico = defaultdict(list)
+detector = Detector(ventana_segundos=60)
+contador = 0
 
 def procesar_paquete(pkt):
+    global contador
+
     if not pkt.haslayer(IP):
         return
 
@@ -28,7 +34,6 @@ def procesar_paquete(pkt):
         proto = "OTRO"
         puerto = "-"
 
-    # Guardamos cada paquete asociado a su IP origen
     trafico[ip_src].append({
         "timestamp": timestamp,
         "dst": ip_dst,
@@ -38,12 +43,24 @@ def procesar_paquete(pkt):
 
     print(f"[{timestamp}] {proto:5} | {ip_src:20} → {ip_dst:20} | puerto dst: {puerto}")
 
-    # Cada 10 paquetes mostramos un resumen
+    # Resumen cada 10 paquetes
     total = sum(len(v) for v in trafico.values())
     if total % 10 == 0:
         print(f"\n--- Resumen: {len(trafico)} IPs únicas, {total} paquetes capturados ---\n")
 
-print("NetGuard v0.1 — capturando en eth0... (Ctrl+C para detener)\n")
+    # Análisis de anomalías cada 5 paquetes
+    contador += 1
+    if contador % 5 == 0:
+        alertas = detector.analizar(trafico)
+        if alertas:
+            print("\n" + "="*60)
+            for alerta in alertas:
+                print(f"⚠  ALERTA [{alerta['severidad']}] — {alerta['tipo']}")
+                print(f"   IP:      {alerta['ip_src']}")
+                print(f"   Detalle: {alerta['detalle']}")
+            print("="*60 + "\n")
+
+print("NetGuard v0.2 — captura + detección activa en eth0...\n")
 
 sniff(
     iface="eth0",
