@@ -12,7 +12,7 @@ import json
 import threading
 from datetime import datetime
 
-from scapy.all import sniff, IP, TCP, UDP, ICMP
+from src.capture.sniffer_rs import iniciar_captura_rust
 from src.analyzer.detector import Detector
 from src.ai.analizador import AnalizadorIA
 
@@ -38,26 +38,26 @@ clientes_ws = []
 
 # ── Captura de paquetes ──────────────────────────────────────────
 
-def procesar_paquete(pkt):
-    if not pkt.haslayer(IP):
-        return
+def iniciar_sniffer():
+    def adaptar(pkt):
+        # El módulo Rust ya parsea el paquete — lo adaptamos al formato interno
+        procesar_paquete_rust(pkt)
+    iniciar_captura_rust(adaptar)
 
-    ip_src = pkt[IP].src
-    ip_dst = pkt[IP].dst
-    timestamp = datetime.now().strftime("%H:%M:%S")
+def procesar_paquete_rust(pkt):
+    """Procesa paquetes que vienen del módulo Rust (ya parseados como dict)."""
+    ip_src   = pkt["src"]
+    ip_dst   = pkt["dst"]
+    timestamp = pkt["timestamp"]
+    proto    = pkt["protocolo"]
+    puerto   = pkt["puerto_dst"]
 
-    if pkt.haslayer(TCP):
-        proto = "TCP"
-        puerto = pkt[TCP].dport
-    elif pkt.haslayer(UDP):
-        proto = "UDP"
-        puerto = pkt[UDP].dport
-    elif pkt.haslayer(ICMP):
-        proto = "ICMP"
-        puerto = "-"
-    else:
-        proto = "OTRO"
-        puerto = "-"
+    estado["trafico"][ip_src].append({
+        "timestamp": timestamp,
+        "dst": ip_dst,
+        "proto": proto,
+        "puerto": puerto
+    })
 
     paquete = {
         "timestamp": timestamp,
@@ -67,24 +67,12 @@ def procesar_paquete(pkt):
         "puerto": puerto
     }
 
-    # Actualizamos estado global
-    estado["trafico"][ip_src].append({
-        "timestamp": timestamp,
-        "dst": ip_dst,
-        "proto": proto,
-        "puerto": puerto
-    })
-
-    # Mantenemos solo los últimos 50 paquetes
     estado["paquetes_recientes"].append(paquete)
     if len(estado["paquetes_recientes"]) > 50:
         estado["paquetes_recientes"].pop(0)
 
     estado["stats"]["total_paquetes"] += 1
     estado["stats"]["ips_unicas"] = len(estado["trafico"])
-
-def iniciar_sniffer():
-    sniff(iface="eth0", prn=procesar_paquete, store=False)
 
 # ── Loop de análisis ─────────────────────────────────────────────
 
