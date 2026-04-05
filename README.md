@@ -18,27 +18,27 @@ NetGuard captures live network packets, detects anomalous behavior patterns, aut
 
 ## Architecture
 netguard/
-├── capture_rs/                  # Rust — packet capture module
-│   ├── src/main.rs              # raw byte parsing via libpcap
-│   └── Cargo.toml
-├── vuln_scanner/                # Rust — TCP port scanner
-│   ├── src/main.rs              # async concurrent scanning with Tokio
-│   └── Cargo.toml
-├── src/
-│   ├── capture/
-│   │   ├── sniffer.py           # original Python capture (reference)
-│   │   └── sniffer_rs.py        # Python ↔ Rust bridge (subprocess + JSON)
-│   ├── analyzer/
-│   │   ├── detector.py          # anomaly detection engine
-│   │   └── scanner_integration.py  # counter-scan trigger
-│   ├── ai/
-│   │   └── analizador.py        # Claude API integration
-│   └── dashboard/
-│       ├── app.py               # FastAPI server + WebSocket
-│       └── static/
-│           └── index.html       # real-time web interface
-├── .env.example
-└── README.md
+    ├── capture_rs/                  # Rust — packet capture module
+    │   ├── src/main.rs              # raw byte parsing via libpcap
+    │   └── Cargo.toml
+    ├── vuln_scanner/                # Rust — TCP port scanner
+    │   ├── src/main.rs              # async concurrent scanning with Tokio
+    │   └── Cargo.toml
+    ├── src/
+    │   ├── capture/
+    │   │   ├── sniffer.py           # original Python capture (reference)
+    │   │   └── sniffer_rs.py        # Python ↔ Rust bridge (subprocess + JSON)
+    │   ├── analyzer/
+    │   │   ├── detector.py          # anomaly detection engine
+    │   │   └── scanner_integration.py  # counter-scan trigger
+    │   ├── ai/
+    │   │   └── analizador.py        # Claude API integration
+    │   └── dashboard/
+    │       ├── app.py               # FastAPI server + WebSocket
+    │       └── static/
+    │           └── index.html       # real-time web interface
+    ├── .env.example
+    └── README.md
 
 ### How it works
 
