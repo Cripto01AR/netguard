@@ -211,19 +211,35 @@
       parseInt(document.getElementById('stat-alertas').textContent) + 1;
   }
 
-  function buildAlertaHTML(a) {
-    const sev = (a.severidad || '').toLowerCase();
-    return `
-      <div class="alerta-card ${sev}">
-        <div class="alerta-header">
-          <span class="alerta-tipo ${sev}">${a.tipo}</span>
-          <span class="alerta-ts">${a.timestamp || ''}</span>
-        </div>
-        <div class="alerta-ip">IP: ${a.ip_src} · ${a.detalle}</div>
-        <div class="alerta-ia">${a.analisis_ia || 'Analizando...'}</div>
-      </div>
-    `;
+ function buildAlertaHTML(a) {
+  const sev = (a.severidad || '').toLowerCase();
+  let contraScan = '';
+  if (a.contra_scan && a.contra_scan.length > 0) {
+    const puertos = a.contra_scan.map(p =>
+      `<span style="color:#f0883e">${p.puerto}</span> <span style="color:#8b949e">(${p.servicio})</span>`
+    ).join(' · ');
+    contraScan = `
+      <div style="margin-top:6px;padding:6px 8px;background:#0d1117;border-radius:4px;font-size:11px;">
+        <span style="color:#58a6ff;">🔍 Contra-scan:</span> ${puertos}
+      </div>`;
+  } else if (a.contra_scan && a.contra_scan.length === 0) {
+    contraScan = `
+      <div style="margin-top:6px;padding:6px 8px;background:#0d1117;border-radius:4px;font-size:11px;color:#8b949e;">
+        🔍 Contra-scan: sin puertos abiertos
+      </div>`;
   }
+  return `
+    <div class="alerta-card ${sev}">
+      <div class="alerta-header">
+        <span class="alerta-tipo ${sev}">${a.tipo}</span>
+        <span class="alerta-ts">${a.timestamp || ''}</span>
+      </div>
+      <div class="alerta-ip">IP: ${a.ip_src} · ${a.detalle}</div>
+      ${contraScan}
+      <div class="alerta-ia">${a.analisis_ia || 'Analizando...'}</div>
+    </div>
+  `;
+}
 </script>
 </body>
 </html>

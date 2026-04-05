@@ -12,6 +12,7 @@ import json
 import threading
 from datetime import datetime
 
+from src.analyzer.scanner_integration import escanear_ip
 from src.capture.sniffer_rs import iniciar_captura_rust
 from src.analyzer.detector import Detector
 from src.ai.analizador import AnalizadorIA
@@ -83,13 +84,31 @@ def loop_analisis():
         alertas = detector.analizar(estado["trafico"])
         for alerta in alertas:
             print(f"⚠ ALERTA: {alerta['tipo']} desde {alerta['ip_src']}")
-            analisis = analizador_ia.analizar_alerta(alerta)
+
+            puertos_abiertos = None
+
+            # Si es un port scan, contra-escaneamos la IP atacante
+            if alerta['tipo'] == 'PORT_SCAN':
+                print(f"🔍 Contra-escaneando {alerta['ip_src']}...")
+                puertos_abiertos = escanear_ip(
+                    alerta['ip_src'],
+                    ports_start=1,
+                    ports_end=1024,
+                    timeout_ms=1500
+                )
+                print(f"   {len(puertos_abiertos)} puertos abiertos encontrados")
+
+            analisis = analizador_ia.analizar_alerta(alerta, puertos_abiertos)
             alerta["analisis_ia"] = analisis
             alerta["timestamp"] = datetime.now().strftime("%H:%M:%S")
-            estado["alertas"].insert(0, alerta)  # más recientes primero
+
+            # Agregamos info del contra-scan a la alerta para el dashboard
+            if puertos_abiertos is not None:
+                alerta["contra_scan"] = puertos_abiertos
+
+            estado["alertas"].insert(0, alerta)
             estado["stats"]["alertas_total"] += 1
 
-            # Notificamos a todos los clientes WebSocket
             asyncio.run(broadcast({
                 "tipo": "alerta",
                 "data": alerta
