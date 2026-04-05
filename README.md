@@ -13,6 +13,7 @@ NetGuard captures live network packets, detects anomalous behavior patterns, aut
 - **Automated counter-scan** — when a port scan is detected, automatically scans the attacker's IP for exposed services
 - **AI-powered analysis** — sends alerts + counter-scan results to Claude API for natural language explanation, risk assessment, and recommended actions
 - **Web dashboard** — real-time interface with WebSocket updates, traffic feed, and alert panel with attacker profile
+- **IP geolocation** — every alert shows the attacker's country, city, and ISP using ip-api.com
 
 ---
 
@@ -70,6 +71,7 @@ netguard/
 | Web server | FastAPI + Uvicorn | Async REST API + WebSocket server |
 | Frontend | Vanilla JS + WebSocket | Real-time DOM updates |
 | Environment | WSL2 + Python venv | Linux networking stack on Windows |
+| IP Geolocation | ip-api.com | Country, city and ISP lookup with local caching |
 
 ---
 
@@ -167,6 +169,21 @@ This mirrors how a real SOC (Security Operations Center) analyst would respond: 
 
 ---
 
+## IP Geolocation
+
+Every alert is enriched with geographic data from [ip-api.com](http://ip-api.com):
+
+- Country, city, and ISP of the source IP
+- Private IPs (RFC 1918) are identified as local network without making external requests
+- Results are cached in memory with `lru_cache` — repeated IPs don't generate additional API calls
+- Supports up to 1000 requests/minute on the free tier — sufficient for any development workload
+
+Example alert enrichment:
+```
+⚠ PORT_SCAN — 172.23.100.201
+📍 Buenos Aires, Argentina · Fibertel
+```
+
 ## Concepts Applied
 
 - **TCP/IP model** — packet parsing across layers 3 (IP, ICMP) and 4 (TCP, UDP)
@@ -188,7 +205,7 @@ This mirrors how a real SOC (Security Operations Center) analyst would respond: 
 - [x] Phase 5 — capture module rewritten in Rust
 - [x] Phase 6 — automated vulnerability scanner with active response
 - [ ] PCAP export for Wireshark analysis
-- [ ] IP geolocation on alerts
+- [x] IP geolocation on alerts
 - [ ] Configurable detection thresholds via dashboard
 - [ ] Slack / email notifications
 - [ ] Service version detection (banner grabbing)
