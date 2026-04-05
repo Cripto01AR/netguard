@@ -213,6 +213,24 @@
 
  function buildAlertaHTML(a) {
   const sev = (a.severidad || '').toLowerCase();
+
+  // Geolocalización
+  let geoHTML = '';
+  if (a.geo && !a.geo.es_privada) {
+    geoHTML = `
+      <div style="font-size:11px;color:#8b949e;margin-bottom:6px;">
+        📍 ${a.geo.ciudad}, ${a.geo.pais} 
+        <span style="color:#58a6ff;">${a.geo.pais_codigo}</span>
+        · ${a.geo.isp}
+      </div>`;
+  } else if (a.geo && a.geo.es_privada) {
+    geoHTML = `
+      <div style="font-size:11px;color:#8b949e;margin-bottom:6px;">
+        📍 Red local (IP privada)
+      </div>`;
+  }
+
+  // Contra-scan
   let contraScan = '';
   if (a.contra_scan && a.contra_scan.length > 0) {
     const puertos = a.contra_scan.map(p =>
@@ -228,6 +246,7 @@
         🔍 Contra-scan: sin puertos abiertos
       </div>`;
   }
+
   return `
     <div class="alerta-card ${sev}">
       <div class="alerta-header">
@@ -235,6 +254,7 @@
         <span class="alerta-ts">${a.timestamp || ''}</span>
       </div>
       <div class="alerta-ip">IP: ${a.ip_src} · ${a.detalle}</div>
+      ${geoHTML}
       ${contraScan}
       <div class="alerta-ia">${a.analisis_ia || 'Analizando...'}</div>
     </div>

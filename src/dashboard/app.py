@@ -12,6 +12,7 @@ import json
 import threading
 from datetime import datetime
 
+from src.analyzer.geolocalizacion import geolocalizacion
 from src.analyzer.scanner_integration import escanear_ip
 from src.capture.sniffer_rs import iniciar_captura_rust
 from src.analyzer.detector import Detector
@@ -84,7 +85,11 @@ def loop_analisis():
         alertas = detector.analizar(estado["trafico"])
         for alerta in alertas:
             print(f"⚠ ALERTA: {alerta['tipo']} desde {alerta['ip_src']}")
-
+            
+            # Geolocalización de la IP atacante
+            geo = geolocalizacion(alerta['ip_src'])
+            alerta['geo'] = geo
+            print(f"   📍 {geo['ciudad']}, {geo['pais']} — {geo['isp']}")
             puertos_abiertos = None
 
             # Si es un port scan, contra-escaneamos la IP atacante
